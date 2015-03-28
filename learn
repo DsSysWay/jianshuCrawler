@@ -1,0 +1,17 @@
+出现 github  提交失败permission deny的时候
+是ssh  key过期了，这种时候使用ssh-keygen
+在~/.ssh/目录下可以看到id_rsa.pub的文件，打开把key
+复制到github  站点上就行
+
+本地工程关联到github上步骤
+git  init
+
+git  add
+
+git  commit -m  “一些注释”
+
+
+git  remote  add origin git@github.com:github account/project.git
+
+
+git push -u origin master
