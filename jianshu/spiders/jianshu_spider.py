@@ -17,50 +17,91 @@ from scrapy.contrib.linkextractors.sgml import SgmlLinkExtractor as sle
 from jianshu.items import *
 from jianshu.misc.log import *
 import codecs
+import sys
+reload(sys)
+sys.setdefaultencoding('utf-8')
 
-file_object = codecs.open("log.txt","w","utf-8")
-items = []
 
+
+###URL2_ARTICLE_TITLE = {}
 class jianshuSpider(CrawlSpider):
 
     name = "jianshu" #here is the key to name spider,if not match will throw spider not found error
-    allowed_domains = ["tencent.com"]
+    allowed_domains = ["jianshu.com"]
     start_urls = [
-            "http://www.jianshu.com/collections?category_id=8&_=1427558117311"
+            "http://www.jianshu.com/collections?category_id=8&order_by=score&_=1429111447249&page=1"
             #program zhuan lan
     ]
     rules = [
-        Rule(sle(allow=("/collection/[0-10a-zA-Z]+")), follow=True, callback='parse_zhuanlan'),
-        Rule(sle(allow=("/p/[0-10a-zA-Z]+")), follow=True, callback='parse_item')
+        Rule(sle(allow=("collections?category_id=8&order_by=score&_=1429111447249&page=[0-9]+")), follow=True, callback='parse_zhuanlan'),
+        Rule(sle(allow=("/collection/[0-10a-zA-Z]+")), follow=True, callback='parse_article_list'),
+        Rule(sle(allow=("/p/[0-10a-zA-Z]+")), follow=True, callback='parse_article')
     ]
 
+
+    max_page_limit = 10
+
+    def constructNextZhuanlanUrl(self,url):
+        length  = len(url)
+        page_num = url[length-1]
+        if(page_num < 15):
+            page_num = page_num + 1
+            url[length-1] = page_num
+            return url
+        return ""
+
+    def extractContentFromAElement(self,content):
+        length = len(content)
+        if(length > 1):
+            return content[1:(length-4)]
+
     def parse_zhuanlan(self, response):
-        info("jianshu zhuanlan"+ str(response));
-        return response;
-
-    def parse_item(self, response):
-        sel = Selector(response)
+        info("zhuanlan url:"+response.url)
         base_url = get_base_url(response)
-        sites_even = sel.css('container')
-        item = Article()
-        # item['name'] = site.css('.l.square a').xpath('text()').extract()[0]
-        # relative_url = site.css('.l.square a').xpath('@href').extract()[0]
-        # item['detailLink'] = urljoin_rfc(base_url, relative_url)
-        # item['catalog'] = site.css('tr > td:nth-child(2)::text').extract()[0]
-        # item['workLocation'] = site.css('tr > td:nth-child(4)::text').extract()[0]
-        # item['recruitNumber'] = site.css('tr > td:nth-child(3)::text').extract()[0]
-        # item['publishTime'] = site.css('tr > td:nth-child(5)::text').extract()[0]
-        item['zhuanlan'] = ""
-        item['title']    = site.css('title').xpath('text()').extract()[0]
-        item['author']    = site.css('meta-top > span:nth-child(1)::text').extract()[0]
-        item['content']    = site.css('show-content').xpath('text()').extract()[0]
-        item['star']    = site.css('like-content').xpath('text()').extract()[0]
-        item['site']     =  "" 
-        items.append(item)
-            #print repr(item).decode("unicode-escape") + '\n'
+        selectorList = response.xpath("//h5/a[contains(@href,'collection')]")
+        for   selector in selectorList:
+            hrefStr = selector.extract()
+            hrefList = hrefStr.split("\"")
+            href = base_url + hrefList[1]
+            info("article list href  str:"+ href)
+            name = self.extractContentFromAElement(hrefList[2])
+            info("zhuanlan name:" + name)
+            yield  scrapy.Request(href,self.parse_article_list)
+        next_zhuanlan_page = self.constructNextZhuanlanUrl(response.url)
+        if(len(next_zhuanlan_page) != 0):
+            info("next zhuanlan page:"+next_zhuanlan_page)
+            yield  scrapy.Request(href,self.parse_zhuanlan)
 
-        return items
 
+    def parse_article_list(self, response):
+        global URL2_ARTICLE_TITLE
+        info("parse article list  url:"+response.url)
+        base_url = get_base_url(response)
+        selectorList = response.xpath("//h4/a[contains(@href,'p')]")
+        for selector in selectorList:
+            hrefStr = selector.extract()
+            hrefList = hrefStr.split("\"") 
+            href = base_url + hrefList[1]
+            info("article href:"+href)
+            name = self.extractContentFromAElement(hrefList[4])
+            name = name.encode("utf-8")
+            ###URL2_ARTICLE_TITLE[href] = name
+            yield  scrapy.Request(href,self.parse_article)
+
+
+
+    def parse_article(self, response):
+        article = Article()
+###        base_url = get_base_url(response)
+  ###      post_fix_len = len("?utm_campaign=maleskine&utm_content=note&utm_medium=pc_all_hots&utm_source=recommendation")
+      ###  url = response.url[0:post_fix_len]
+        url = response.url
+        title = response.xpath("//h1[@class='title']/text()").extract()
+        article['title'] = title[0].encode("utf-8")
+        info("article name:"+ article['title'] )
+        article['content']  = response.body
+        article["url"]  = response.url
+        return article
 
     def _process_request(self, request):
         info('process ' + str(request))

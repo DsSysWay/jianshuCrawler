@@ -11,12 +11,9 @@ from scrapy.item import Item, Field
 
 
 class  Article(Item):
-    zhuanlan = Field() #所属专栏
     title = Field() #文章主题
-    site = Field() #文章地址
+    url = Field() #文章地址
     content = Field()  #内容
-    author = Field() #
-    star = Field() #点赞数量
 
 #class (scrapy.Item):
     # define the fields for your item here like:
