@@ -15,3 +15,10 @@ git  remote  add origin git@github.com:github account/project.git
 
 
 git push -u origin master
+
+
+python trick
+
+python -m SimpleHTTPServer
+可以把目录下的文件共享出来
+接入同一个网段的手机也可以直接访问文件 
